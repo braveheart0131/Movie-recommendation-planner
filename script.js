@@ -30,7 +30,23 @@ recommendForm.addEventListener("submit", async (e) => {
   try {
     // For now use mock data.
     // Next step: replace this with fetch("/api/recommend", ...)
-    const recommendations = await getMockRecommendations(formData);
+    const API_URL = "https://movie-recommendation-planner.vercel.app/api/recommend";
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(formData),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || "Failed to fetch recommendations");
+  }
+
+  const data = await response.json();
+  const recommendations = data.recommendations || [];
 
     currentRecommendations = recommendations;
     renderResults(recommendations, formData);
