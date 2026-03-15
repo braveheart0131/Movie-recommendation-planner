@@ -109,8 +109,9 @@ function renderResults(movies, formData) {
     card.innerHTML = `
       <img
         class="movie-poster"
-        src="${movie.poster}"
+        src="${movie.poster || 'https://via.placeholder.com/500x750?text=No+Poster'}"
         alt="${escapeHtml(movie.title)} poster"
+        onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'"
       />
 
       <div class="movie-content">
