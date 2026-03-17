@@ -47,7 +47,11 @@ export default async function handler(req, res) {
     const prompt = `
 You are a movie recommendation assistant.
 
-Return valid JSON only. No markdown fences.
+For each movie, explicitly explain how it matches the user's mood, and ensure all recommendations are clearly different from each other in tone, pacing, or theme.
+
+Avoid obvious or overused recommendations unless they are an exceptional fit.
+
+Return valid JSON only. Do not include markdown.
 
 Recommend 6 real movies for this user.
 
