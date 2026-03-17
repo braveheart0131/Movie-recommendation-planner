@@ -6,6 +6,10 @@ const loadingState = document.getElementById("loadingState");
 const resultsSummary = document.getElementById("resultsSummary");
 const watchlistEl = document.getElementById("watchlist");
 const watchlistEmpty = document.getElementById("watchlistEmpty");
+const includeFreeToggle = document.getElementById("includeFree");
+const freePlatformsSection = document.getElementById("freePlatformsSection");
+
+
 
 const WATCHLIST_KEY = "movieWatchlist";
 
@@ -13,6 +17,14 @@ let currentRecommendations = [];
 let watchlist = loadWatchlist();
 
 renderWatchlist();
+
+if (includeFreeToggle && freePlatformsSection) {
+  freePlatformsSection.classList.toggle("hidden", !includeFreeToggle.checked);
+
+  includeFreeToggle.addEventListener("change", () => {
+    freePlatformsSection.classList.toggle("hidden", !includeFreeToggle.checked);
+  });
+}
 
 recommendForm.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -77,7 +89,7 @@ const includeFree = document.getElementById("includeFree").checked;
     runtime: document.getElementById("runtime").value,
     familyFriendly: document.getElementById("familyFriendly").value,
     vibe: document.getElementById("vibe").value.trim(),
-    subscriptions
+    subscriptions,
     freePlatforms,
     includeFree
   };
