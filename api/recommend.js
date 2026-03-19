@@ -23,16 +23,23 @@ export default async function handler(req, res) {
 
   try {
     const {
-      mood = "",
-      genre = "",
-      language = "",
-      runtime = "",
-      familyFriendly = "",
-      vibe = "",
-      subscriptions = [],
-      freePlatforms = [],
-      includeFree = false,
-    } = req.body || {};
+  mood = "",
+  genre = "",
+  language = "",
+  runtime = "",
+  familyFriendly = "",
+  vibe = "",
+} = req.body || {};
+
+const subscriptions = Array.isArray(req.body?.subscriptions)
+  ? req.body.subscriptions.map((v) => String(v).trim()).filter(Boolean)
+  : [];
+
+const freePlatforms = Array.isArray(req.body?.freePlatforms)
+  ? req.body.freePlatforms.map((v) => String(v).trim()).filter(Boolean)
+  : [];
+
+const includeFree = Boolean(req.body?.includeFree);
 
     if (!mood) {
       return res.status(400).json({ error: "Mood is required." });
@@ -175,7 +182,12 @@ async function enrichWithTMDB(movie, index, userSubscriptions = [], freePlatform
   const details = await getTMDBMovieDetails(searchMatch.id);
   const providers = extractUSFlatrateProviders(details?.["watch/providers"]);
 
-  const streaming = prioritizeProviders(providers, userSubscriptions,freePlatforms, includeFree);
+  const streaming = prioritizeProviders(
+  providers,
+  userSubscriptions,
+  freePlatforms,
+  includeFree
+);
 
   if (!streaming.length) {
   return null; // 🚨 remove movies not available on allowed platforms
@@ -246,6 +258,13 @@ function extractUSFlatrateProviders(watchProviders) {
   return flatrate.map((p) => p.provider_name).filter(Boolean);
 }
 
+function matchPlatform(p, list) {
+  const lower = p.toLowerCase();
+  return list.some(item =>
+    lower.includes(item.toLowerCase()) ||
+    item.toLowerCase().includes(lower)
+  );
+}
 function prioritizeProviders(
   providers,
   userSubscriptions = [],
@@ -253,11 +272,6 @@ function prioritizeProviders(
   includeFree = false
 ) {
   if (!Array.isArray(providers)) return [];
-
-  const normalize = (arr) => arr.map(p => p.toLowerCase());
-
-  const paidSet = normalize(userSubscriptions);
-  const freeSet = normalize(freePlatforms);
 
   const paidMatches = providers.filter((p) =>
   matchPlatform(p, userSubscriptions)
@@ -271,13 +285,7 @@ function prioritizeProviders(
   return [...paidMatches, ...freeMatches];
 }
 
-function matchPlatform(p, list) {
-  const lower = p.toLowerCase();
-  return list.some(item =>
-    lower.includes(item.toLowerCase()) ||
-    item.toLowerCase().includes(lower)
-  );
-}
+
 
 function formatProviders(providers, freePlatforms = []) {
   return providers.map((p) =>
@@ -297,86 +305,5 @@ function slugify(value) {
     .replace(/^-|-$/g, "");
 }
 
-function normalizeArray(value) {
-  if (Array.isArray(value)) return value.map(String).map(v => v.trim()).filter(Boolean);
-  if (typeof value === "string") return value.split(",").map(v => v.trim()).filter(Boolean);
-  return [];
-}
 
-function normalizeBoolean(value) {
-  if (typeof value === "boolean") return value;
-  if (typeof value === "string") return value.toLowerCase() === "true";
-  return false;
-}
 
-app.post("/api/recommend", async (req, res) => {
-  try {
-    const { 
-      mood = "",
-      genre = "",
-      language = "",
-      runtime = "",
-      familyFriendly = "",
-      vibe = ""
-    } = req.body || {};
-
-    const subscriptions = normalizeArray(req.body?.subscriptions);
-    const freePlatforms = normalizeArray(req.body?.freePlatforms);
-    const includeFree = normalizeBoolean(req.body?.includeFree);
-
-    const allowedPlatforms = [
-      ...subscriptions,
-      ...(includeFree ? freePlatforms : [])
-    ];
-
-    const prompt = `
-You are a smart movie recommendation assistant.
-
-User preferences:
-- Mood: ${mood || "any"}
-- Genre: ${genre || "any"}
-- Language: ${language || "any"}
-- Runtime: ${runtime || "any"}
-- Family friendly: ${familyFriendly || "any"}
-- Vibe: ${vibe || "none"}
-
-Platform rules:
-- Paid subscriptions selected: ${subscriptions.length ? subscriptions.join(", ") : "none"}
-- Include free platforms: ${includeFree ? "yes" : "no"}
-- Free platforms selected: ${freePlatforms.length ? freePlatforms.join(", ") : "none"}
-- Allowed platforms overall: ${allowedPlatforms.length ? allowedPlatforms.join(", ") : "none"}
-
-Important rules:
-- Recommend movies only from the allowed platforms list.
-- Prioritize paid subscriptions first.
-- Only use free platforms if includeFree is true.
-- Never mention platforms not selected by the user.
-
-Return valid JSON only:
-[
-  {
-    "title": "Movie Title",
-    "year": "2020",
-    "why": "Why it matches the user's taste",
-    "platform": "Netflix",
-    "platformType": "paid"
-  }
-]
-`;
-
-    // OpenAI call here
-
-    res.json({
-      success: true,
-      received: {
-        subscriptions,
-        freePlatforms,
-        includeFree,
-        allowedPlatforms
-      }
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Something went wrong." });
-  }
-});
