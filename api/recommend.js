@@ -23,23 +23,23 @@ export default async function handler(req, res) {
 
   try {
     const {
-  mood = "",
-  genre = "",
-  language = "",
-  runtime = "",
-  familyFriendly = "",
-  vibe = "",
-} = req.body || {};
+      mood = "",
+      genre = "",
+      language = "",
+      runtime = "",
+      familyFriendly = "",
+      vibe = "",
+    } = req.body || {};
 
-const subscriptions = Array.isArray(req.body?.subscriptions)
-  ? req.body.subscriptions.map((v) => String(v).trim()).filter(Boolean)
-  : [];
+    const subscriptions = Array.isArray(req.body?.subscriptions)
+      ? req.body.subscriptions.map((v) => String(v).trim()).filter(Boolean)
+      : [];
 
-const freePlatforms = Array.isArray(req.body?.freePlatforms)
-  ? req.body.freePlatforms.map((v) => String(v).trim()).filter(Boolean)
-  : [];
+    const freePlatforms = Array.isArray(req.body?.freePlatforms)
+      ? req.body.freePlatforms.map((v) => String(v).trim()).filter(Boolean)
+      : [];
 
-const includeFree = Boolean(req.body?.includeFree);
+    const includeFree = Boolean(req.body?.includeFree);
 
     if (!mood) {
       return res.status(400).json({ error: "Mood is required." });
@@ -54,14 +54,10 @@ const includeFree = Boolean(req.body?.includeFree);
     const prompt = `
 You are a movie recommendation assistant.
 
-Each recommendation must represent a distinct category of experience (e.g., one light comedy, one emotional drama, one visually immersive film, one feel-good story, one character-driven film, one unique or unconventional pick). Avoid repeating the same type of movie.
-
-Do not recommend multiple movies with very similar tone or premise.
-
+Each recommendation must represent a distinct category of experience.
+Avoid repeating the same type of movie.
 Avoid obvious or overused recommendations unless they are an exceptional fit.
-
 Return valid JSON only. Do not include markdown.
-
 Recommend 6 real movies for this user.
 
 User preferences:
@@ -71,34 +67,19 @@ User preferences:
 - Runtime: ${runtime || "Any"}
 - Family friendly: ${familyFriendly || "No preference"}
 - Extra vibe: ${vibe || "None"}
-- Streaming subscriptions: ${
-      Array.isArray(subscriptions) && subscriptions.length
-        ? subscriptions.join(", ")
-        : "None provided"
-    }
-- Include free streaming options: ${includeFree ? "Yes" : "No"}
-- Preferred free platforms: ${
-  Array.isArray(freePlatforms) && freePlatforms.length
-    ? freePlatforms.join(", ")
-    : "None provided"
-}
 
 Platform rules:
-- Allowed paid platforms: ${
-  subscriptions.length ? subscriptions.join(", ") : "none"
-}
+- Allowed paid platforms: ${subscriptions.length ? subscriptions.join(", ") : "none"}
 - Allowed free platforms: ${
-  includeFree && freePlatforms.length
-    ? freePlatforms.join(", ")
-    : "none"
-}
-- Include free platforms: ${includeFree ? "yes" : "no"}
+      includeFree && freePlatforms.length ? freePlatforms.join(", ") : "none"
+    }
+- Include free platforms: ${includeFree ? "Yes" : "No"}
 
 STRICT RULES:
-- Only recommend movies available on the allowed platforms.
-- NEVER include platforms not listed above.
-- If a movie is not available on these platforms, DO NOT include it.
-- Prioritize paid subscriptions over free platforms.
+- Only recommend movies available on the allowed platforms above.
+- Never include platforms not listed above.
+- If a movie is not available on those platforms, do not recommend it.
+- Prioritize paid subscriptions before free platforms.
 
 Return this exact JSON shape:
 {
@@ -158,7 +139,13 @@ Return this exact JSON shape:
   }
 }
 
-async function enrichWithTMDB(movie, index, userSubscriptions = [], freePlatforms = [], includeFree = false) {
+async function enrichWithTMDB(
+  movie,
+  index,
+  userSubscriptions = [],
+  freePlatforms = [],
+  includeFree = false
+) {
   const title = movie?.title?.trim();
   const year = movie?.year;
 
@@ -166,32 +153,21 @@ async function enrichWithTMDB(movie, index, userSubscriptions = [], freePlatform
 
   const searchMatch = await searchTMDBMovie(title, year);
   if (!searchMatch) {
-    return {
-      id: slugify(`${title}-${year || index}`),
-      title,
-      year: year || null,
-      poster: "",
-      overview: "Overview unavailable.",
-      genres: [],
-      whyRecommended:
-        movie.whyRecommended || "This movie matches your preferences.",
-      streaming: Array.isArray(movie.streaming) ? movie.streaming : [],
-    };
+    return null;
   }
 
   const details = await getTMDBMovieDetails(searchMatch.id);
   const providers = extractUSFlatrateProviders(details?.["watch/providers"]);
-
   const streaming = prioritizeProviders(
-  providers,
-  userSubscriptions,
-  freePlatforms,
-  includeFree
-);
+    providers,
+    userSubscriptions,
+    freePlatforms,
+    includeFree
+  );
 
   if (!streaming.length) {
-  return null; // 🚨 remove movies not available on allowed platforms
-}
+    return null;
+  }
 
   return {
     id: String(searchMatch.id),
@@ -250,8 +226,6 @@ function tmdbHeaders() {
   };
 }
 
-
-
 function extractUSFlatrateProviders(watchProviders) {
   const us = watchProviders?.results?.US;
   const flatrate = us?.flatrate || [];
@@ -259,12 +233,13 @@ function extractUSFlatrateProviders(watchProviders) {
 }
 
 function matchPlatform(p, list) {
-  const lower = p.toLowerCase();
-  return list.some(item =>
-    lower.includes(item.toLowerCase()) ||
-    item.toLowerCase().includes(lower)
-  );
+  const lower = String(p).toLowerCase();
+  return list.some((item) => {
+    const normalized = String(item).toLowerCase();
+    return lower.includes(normalized) || normalized.includes(lower);
+  });
 }
+
 function prioritizeProviders(
   providers,
   userSubscriptions = [],
@@ -274,36 +249,17 @@ function prioritizeProviders(
   if (!Array.isArray(providers)) return [];
 
   const paidMatches = providers.filter((p) =>
-  matchPlatform(p, userSubscriptions)
-);
+    matchPlatform(p, userSubscriptions)
+  );
 
   const freeMatches = includeFree
-  ? providers.filter((p) => matchPlatform(p, freePlatforms))
-  : [];
+    ? providers.filter((p) => matchPlatform(p, freePlatforms))
+    : [];
 
-  // 🚨 ONLY return allowed platforms
   return [...paidMatches, ...freeMatches];
-}
-
-
-
-function formatProviders(providers, freePlatforms = []) {
-  return providers.map((p) =>
-    freePlatforms.includes(p) ? `${p} (Free)` : p
-  );
 }
 
 function getYear(dateString) {
   if (!dateString) return null;
   return Number(String(dateString).slice(0, 4)) || null;
 }
-
-function slugify(value) {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-
-
