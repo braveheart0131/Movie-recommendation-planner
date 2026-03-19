@@ -75,7 +75,23 @@ User preferences:
     ? freePlatforms.join(", ")
     : "None provided"
 }
-- If free streaming options are allowed, prefer movies available on the user's selected free platforms when possible.
+
+Platform rules:
+- Allowed paid platforms: ${
+  subscriptions.length ? subscriptions.join(", ") : "none"
+}
+- Allowed free platforms: ${
+  includeFree && freePlatforms.length
+    ? freePlatforms.join(", ")
+    : "none"
+}
+- Include free platforms: ${includeFree ? "yes" : "no"}
+
+STRICT RULES:
+- Only recommend movies available on the allowed platforms.
+- NEVER include platforms not listed above.
+- If a movie is not available on these platforms, DO NOT include it.
+- Prioritize paid subscriptions over free platforms.
 
 Return this exact JSON shape:
 {
@@ -161,6 +177,10 @@ async function enrichWithTMDB(movie, index, userSubscriptions = [], freePlatform
 
   const streaming = prioritizeProviders(providers, userSubscriptions,freePlatforms, includeFree);
 
+  if (!streaming.length) {
+  return null; // 🚨 remove movies not available on allowed platforms
+}
+
   return {
     id: String(searchMatch.id),
     title: details?.title || title,
@@ -218,6 +238,8 @@ function tmdbHeaders() {
   };
 }
 
+
+
 function extractUSFlatrateProviders(watchProviders) {
   const us = watchProviders?.results?.US;
   const flatrate = us?.flatrate || [];
@@ -232,15 +254,29 @@ function prioritizeProviders(
 ) {
   if (!Array.isArray(providers)) return [];
 
-  const paidMatches = providers.filter((p) => userSubscriptions.includes(p));
-  const freeMatches = includeFree
-    ? providers.filter((p) => freePlatforms.includes(p))
-    : [];
-  const others = providers.filter(
-    (p) => !paidMatches.includes(p) && !freeMatches.includes(p)
-  );
+  const normalize = (arr) => arr.map(p => p.toLowerCase());
 
-  return [...paidMatches, ...freeMatches, ...others];
+  const paidSet = normalize(userSubscriptions);
+  const freeSet = normalize(freePlatforms);
+
+  const paidMatches = providers.filter((p) =>
+  matchPlatform(p, userSubscriptions)
+);
+
+  const freeMatches = includeFree
+  ? providers.filter((p) => matchPlatform(p, freePlatforms))
+  : [];
+
+  // 🚨 ONLY return allowed platforms
+  return [...paidMatches, ...freeMatches];
+}
+
+function matchPlatform(p, list) {
+  const lower = p.toLowerCase();
+  return list.some(item =>
+    lower.includes(item.toLowerCase()) ||
+    item.toLowerCase().includes(lower)
+  );
 }
 
 function formatProviders(providers, freePlatforms = []) {
