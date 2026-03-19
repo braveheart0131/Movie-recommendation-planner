@@ -457,27 +457,35 @@ textarea::placeholder {
 
 /* Watchlist */
 
-.watchlist-list {
-  display: grid;
-  gap: 12px;
-}
-
 .watch-item {
-  padding: 14px;
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.watch-item h4 {
-  margin: 0 0 6px;
-  font-size: 1rem;
+.watch-poster {
+  width: 68px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.watch-item p {
+.watch-info h4 {
+  margin: 0 0 6px;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
+.watch-info p {
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   line-height: 1.5;
 }
 
