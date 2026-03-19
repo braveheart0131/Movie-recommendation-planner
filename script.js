@@ -189,16 +189,17 @@ function renderResults(movies, formData) {
 }
 
 function addToWatchlist(movie) {
-  const alreadyExists = watchlist.some((item) => item.id === movie.id);
-  if (alreadyExists) return;
+  const exists = watchlist.find((item) => item.id === movie.id);
+  if (exists) return;
 
-  watchlist.unshift({
-    ...movie,
-    watched: false,
-    savedAt: new Date().toISOString()
+  watchlist.push({
+    id: movie.id,
+    title: movie.title,
+    year: movie.year,
+    poster: movie.poster // 👈 ADD THIS
   });
 
-  persistWatchlist();
+  saveWatchlist();
   renderWatchlist();
 }
 
@@ -228,7 +229,30 @@ function toggleWatched(id) {
 }
 
 function renderWatchlist() {
-  watchlistEl.innerHTML = "";
+  watchlistEl.innerHTML = watchlist
+  .map(
+    (movie) => `
+      <div class="watch-item">
+        <img
+          class="watch-poster"
+          src="${movie.poster || "https://via.placeholder.com/300x450?text=No+Poster"}"
+          alt="${escapeHtml(movie.title)}"
+          onerror="this.src='https://via.placeholder.com/300x450?text=No+Poster'"
+        />
+
+        <div class="watch-info">
+          <h4>${escapeHtml(movie.title)} (${movie.year || "—"})</h4>
+
+          <div class="watch-actions">
+            <button class="secondary-btn remove-btn" data-id="${movie.id}">
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    `
+  )
+  .join("");
 
   if (!watchlist.length) {
     watchlistEmpty.classList.remove("hidden");
